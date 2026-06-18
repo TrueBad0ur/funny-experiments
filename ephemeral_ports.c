@@ -4,13 +4,16 @@
  * Build:  cc -Wall -O2 -o ephemeral_ports ephemeral_ports.c
  * Run:    ulimit -n 65536 && ./ephemeral_ports --udp|--tcp
  *
- * --udp  UDP connect() binds port by (src_ip, src_port) only — no dst.
- *        Once a port is taken it is unavailable for ANY destination.
- *        Phase 2 shows that a new UDP connect() to a DIFFERENT dst also fails.
+ * --udp  Phase 0: dig google.com @8.8.8.8 — baseline, works fine.
+ *        Phase 1: exhaust all ephemeral ports via UDP connect() to one dst.
+ *                 UDP binds port by (src_ip, src_port) only — dst irrelevant.
+ *                 Prints /proc/net/udp entry count before and after via ss.
+ *        Phase 2: UDP connect() to a DIFFERENT dst — also fails (global exhaustion).
+ *        Phase 3: dig google.com @8.8.8.8 — fails: "address in use".
  *
- * --tcp  Non-blocking TCP connect() — kernel allocates src_port and sends SYN.
- *        Port selection checks the full 4-tuple (src_ip, src_port, dst_ip, dst_port).
- *        Phase 2 shows that TCP to a DIFFERENT dst still succeeds.
+ * --tcp  Phase 1: exhaust ports via non-blocking TCP connect() to one dst.
+ *                 Kernel checks full 4-tuple (src_ip, src_port, dst_ip, dst_port).
+ *        Phase 2: TCP connect() to a DIFFERENT dst — succeeds (per-dst exhaustion).
  *
  * Tip: shrink the range first for a faster demo:
  *   sudo sysctl -w net.ipv4.ip_local_port_range="50000 50099"
